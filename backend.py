@@ -8,35 +8,28 @@ import platform
 import threading
 import re
 import importlib.util
+import http
 
 # ==================================================================================
-# THREADED COMPILER SERVER (Auto-Install + UTF-8)
+# CLOUD COMPILER SERVER (Python, C, C++) - RENDER COMPATIBLE
 # ==================================================================================
 
 def install_package(package_name):
-    """Attempt to install a package via pip."""
+    """Attempt to install a python package via pip."""
     try:
-        # Check if already installed to save time
         if importlib.util.find_spec(package_name) is not None:
             return
-
         print(f"Installing missing package: {package_name}...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
     except Exception as e:
         print(f"Failed to install {package_name}: {e}")
 
 def check_and_install_packages(code):
-    """Scan code for imports and install them if missing."""
-    # Regex to find 'import x' or 'from x import y'
+    """Scan Python code for imports and install them if missing."""
     imports = re.findall(r'^\s*import\s+(\w+)', code, re.MULTILINE)
     from_imports = re.findall(r'^\s*from\s+(\w+)', code, re.MULTILINE)
-    
     unique_packages = set(imports + from_imports)
-    
-    # Filter out standard library modules (approximate list or just let pip handle it)
-    # Ideally, we just try to install. Pip is smart enough to skip if satisfied.
     for pkg in unique_packages:
-        # Skip common standard libs to save time (add more if needed)
         if pkg in ['os', 'sys', 'time', 'random', 'math', 'json', 'asyncio', 'threading', 'platform', 'subprocess', 're']:
             continue
         install_package(pkg)
@@ -45,9 +38,11 @@ async def run_code(websocket):
     print(f"Client connected: {websocket.remote_address}")
     process = None
     
+    # Helper to read output stream in a separate thread
     def read_stream(stream, loop):
         try:
             while True:
+                # Read 1 byte/char at a time
                 char = stream.read(1)
                 if not char:
                     break
@@ -64,38 +59,102 @@ async def run_code(websocket):
             
             if data.get('type') == 'run':
                 code = data.get('code')
+                language = data.get('language', 'python')
                 
-                # 1. AUTO-INSTALL PACKAGES
-                await websocket.send(json.dumps({'type': 'status', 'msg': 'Checking dependencies...'}))
-                # Run in executor to avoid blocking the event loop
-                await asyncio.get_running_loop().run_in_executor(None, check_and_install_packages, code)
-                
-                # 2. WRITE FILE
-                filename = "temp_script.py"
-                with open(filename, "w", encoding="utf-8") as f:
-                    f.write(code)
-                
-                # 3. RUN CODE
-                env = os.environ.copy()
-                env["PYTHONIOENCODING"] = "utf-8"
+                # --- PYTHON HANDLING ---
+                if language == 'python':
+                    await websocket.send(json.dumps({'type': 'status', 'msg': 'Checking dependencies...'}))
+                    # Run package check in executor to avoid blocking main loop
+                    await asyncio.get_running_loop().run_in_executor(None, check_and_install_packages, code)
+                    
+                    filename = "temp_script.py"
+                    with open(filename, "w", encoding="utf-8") as f:
+                        f.write(code)
+                    
+                    env = os.environ.copy()
+                    env["PYTHONIOENCODING"] = "utf-8"
 
-                process = subprocess.Popen(
-                    [sys.executable, "-u", filename], 
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT, 
-                    text=True, 
-                    bufsize=0, 
-                    encoding='utf-8', 
-                    env=env
-                )
-                
-                await websocket.send(json.dumps({'type': 'status', 'msg': 'Running...'}))
+                    process = subprocess.Popen(
+                        [sys.executable, "-u", filename], 
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT, 
+                        text=True, 
+                        bufsize=0, 
+                        encoding='utf-8', 
+                        env=env
+                    )
+                    await websocket.send(json.dumps({'type': 'status', 'msg': 'Running Python...'}))
 
-                loop = asyncio.get_running_loop()
-                thread = threading.Thread(target=read_stream, args=(process.stdout, loop))
-                thread.daemon = True 
-                thread.start()
+                # --- C HANDLING ---
+                elif language == 'c':
+                    filename = "temp_code.c"
+                    executable = "./a.out" if platform.system() != "Windows" else "a.exe"
+                    
+                    with open(filename, "w", encoding="utf-8") as f:
+                        f.write(code)
+                    
+                    await websocket.send(json.dumps({'type': 'status', 'msg': 'Compiling C...'}))
+                    
+                    compile_process = subprocess.run(
+                        ["gcc", filename, "-o", executable],
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if compile_process.returncode != 0:
+                        await websocket.send(json.dumps({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"}))
+                        continue 
+                    
+                    await websocket.send(json.dumps({'type': 'status', 'msg': 'Running C Binary...'}))
+                    
+                    process = subprocess.Popen(
+                        [executable],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=0,
+                        encoding='utf-8'
+                    )
+
+                # --- C++ HANDLING ---
+                elif language == 'cpp':
+                    filename = "temp_code.cpp"
+                    executable = "./a.out" if platform.system() != "Windows" else "a.exe"
+                    
+                    with open(filename, "w", encoding="utf-8") as f:
+                        f.write(code)
+                    
+                    await websocket.send(json.dumps({'type': 'status', 'msg': 'Compiling C++...'}))
+                    
+                    compile_process = subprocess.run(
+                        ["g++", filename, "-o", executable],
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if compile_process.returncode != 0:
+                        await websocket.send(json.dumps({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"}))
+                        continue
+                    
+                    await websocket.send(json.dumps({'type': 'status', 'msg': 'Running C++ Binary...'}))
+                    
+                    process = subprocess.Popen(
+                        [executable],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=0,
+                        encoding='utf-8'
+                    )
+
+                if process:
+                    loop = asyncio.get_running_loop()
+                    thread = threading.Thread(target=read_stream, args=(process.stdout, loop))
+                    thread.daemon = True 
+                    thread.start()
 
             elif data.get('type') == 'input':
                 if process and process.poll() is None:
@@ -113,9 +172,23 @@ async def run_code(websocket):
     finally:
         if process: process.kill()
 
+async def health_check(path, request_headers):
+    """
+    Custom handler to intercept HTTP requests (like health checks) 
+    before the WebSocket handshake.
+    """
+    if path == "/healthz":
+        return http.HTTPStatus.OK, [], b"OK"
+    # Returning None tells websockets to proceed with the standard handshake
+    return None
+
 async def main():
-    print("Server started on port 8765...")
-    async with websockets.serve(run_code, "0.0.0.0", 8765):
+    # Use PORT env var for Render/Replit, default to 8765
+    port = int(os.environ.get("PORT", 8765))
+    print(f"Server started on port {port}...")
+    
+    # We pass 'process_request' to handle health checks
+    async with websockets.serve(run_code, "0.0.0.0", port, process_request=health_check):
         await asyncio.Future()
 
 if __name__ == "__main__":
