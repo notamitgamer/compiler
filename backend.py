@@ -177,7 +177,9 @@ async def health_check(path, request_headers):
     Custom handler to intercept HTTP requests (like health checks) 
     before the WebSocket handshake.
     """
-    if path == "/healthz":
+    # Render sends HTTP HEAD or GET requests to '/' or '/healthz' for health checks.
+    # We must return a valid HTTP response to prevent the server from treating it as a failed handshake.
+    if path == "/" or path == "/healthz":
         return http.HTTPStatus.OK, [], b"OK"
     # Returning None tells websockets to proceed with the standard handshake
     return None
