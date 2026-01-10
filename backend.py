@@ -14,17 +14,31 @@ import http
 # CLOUD COMPILER SERVER (Python, C, C++) - RENDER COMPATIBLE
 # ==================================================================================
 
-def install_package(package_name):
+def install_package(package_name, websocket=None, loop=None):
     """Attempt to install a python package via pip."""
     try:
         if importlib.util.find_spec(package_name) is not None:
             return
-        print(f"Installing missing package: {package_name}...")
+        
+        msg = f"Installing missing package: {package_name}..."
+        print(msg)
+        if websocket and loop:
+             asyncio.run_coroutine_threadsafe(
+                websocket.send(json.dumps({'type': 'status', 'msg': msg})), 
+                loop
+            )
+
         subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
     except Exception as e:
-        print(f"Failed to install {package_name}: {e}")
+        error_msg = f"Failed to install {package_name}: {e}"
+        print(error_msg)
+        if websocket and loop:
+             asyncio.run_coroutine_threadsafe(
+                websocket.send(json.dumps({'type': 'stdout', 'data': f"\n[Error] {error_msg}\n"})), 
+                loop
+            )
 
-def check_and_install_packages(code):
+def check_and_install_packages(code, websocket=None, loop=None):
     """Scan Python code for imports and install them if missing."""
     imports = re.findall(r'^\s*import\s+(\w+)', code, re.MULTILINE)
     from_imports = re.findall(r'^\s*from\s+(\w+)', code, re.MULTILINE)
@@ -32,7 +46,7 @@ def check_and_install_packages(code):
     for pkg in unique_packages:
         if pkg in ['os', 'sys', 'time', 'random', 'math', 'json', 'asyncio', 'threading', 'platform', 'subprocess', 're']:
             continue
-        install_package(pkg)
+        install_package(pkg, websocket, loop)
 
 async def run_code(websocket):
     print(f"Client connected: {websocket.remote_address}")
@@ -65,7 +79,8 @@ async def run_code(websocket):
                 if language == 'python':
                     await websocket.send(json.dumps({'type': 'status', 'msg': 'Checking dependencies...'}))
                     # Run package check in executor to avoid blocking main loop
-                    await asyncio.get_running_loop().run_in_executor(None, check_and_install_packages, code)
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, check_and_install_packages, code, websocket, loop)
                     
                     filename = "temp_script.py"
                     with open(filename, "w", encoding="utf-8") as f:
