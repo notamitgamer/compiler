@@ -189,22 +189,24 @@ async def run_code(websocket):
 
 async def health_check(path, request_headers):
     """
-    Custom handler to intercept HTTP requests (like health checks) 
-    before the WebSocket handshake.
+    Handler for HTTP requests (Health Checks) before WebSocket handshake.
+    Render uses HEAD/GET on / to check health.
     """
-    # Render sends HTTP HEAD or GET requests to '/' or '/healthz' for health checks.
-    # We must return a valid HTTP response to prevent the server from treating it as a failed handshake.
+    # 1. Check for standard health check paths
     if path == "/" or path == "/healthz":
         return http.HTTPStatus.OK, [], b"OK"
-    # Returning None tells websockets to proceed with the standard handshake
+    
+    # 2. Check headers to see if it's a websocket upgrade attempt
+    # If it lacks 'Upgrade' or 'Connection' headers, it's likely a health check
+    if "Upgrade" not in request_headers or "websocket" not in request_headers.get("Upgrade", "").lower():
+        return http.HTTPStatus.OK, [], b"OK"
+
+    # 3. Proceed with WebSocket Handshake
     return None
 
 async def main():
-    # Use PORT env var for Render/Replit, default to 8765
     port = int(os.environ.get("PORT", 8765))
     print(f"Server started on port {port}...")
-    
-    # We pass 'process_request' to handle health checks
     async with websockets.serve(run_code, "0.0.0.0", port, process_request=health_check):
         await asyncio.Future()
 
