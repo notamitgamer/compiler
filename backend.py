@@ -4,7 +4,6 @@ import json
 import subprocess
 import os
 import sys
-import platform
 import threading
 import re
 import importlib.util
@@ -73,6 +72,14 @@ async def handle_client(request):
                     ws.send_json({'type': 'stdout', 'data': char}), 
                     loop
                 )
+            
+            # --- SIGNAL FINISH ---
+            # When stream ends (process exits), tell frontend
+            asyncio.run_coroutine_threadsafe(
+                ws.send_json({'type': 'status', 'msg': 'Program finished'}), 
+                loop
+            )
+
         except Exception:
             pass
 
