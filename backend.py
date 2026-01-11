@@ -7,6 +7,7 @@ import sys
 import threading
 import re
 import importlib.util
+import platform  # <--- FIXED: Added missing import
 
 # ==================================================================================
 # CLOUD COMPILER SERVER (AIOHTTP) - RENDER COMPATIBLE
