@@ -13,7 +13,7 @@ import platform
 # CLOUD COMPILER SERVER (AIOHTTP) - RENDER COMPATIBLE
 # ==================================================================================
 
-# Get API Key from Environment (Set this in Render Dashboard)
+# Get API Key from Environment
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 def install_package(package_name, ws=None, loop=None):
@@ -52,7 +52,6 @@ def check_and_install_packages(code, ws=None, loop=None):
 
 async def handle_client(request):
     # --- HEALTH CHECK HANDLING ---
-    # Render sends HEAD/GET to root. If not a websocket upgrade, return OK.
     if request.headers.get("Upgrade", "").lower() != "websocket":
         return web.Response(text="OK")
 
@@ -67,23 +66,18 @@ async def handle_client(request):
     def read_stream(stream, loop):
         try:
             while True:
-                # Read 1 byte/char at a time
                 char = stream.read(1)
                 if not char:
                     break
-                # aiohttp's send_json is a coroutine
                 asyncio.run_coroutine_threadsafe(
                     ws.send_json({'type': 'stdout', 'data': char}), 
                     loop
                 )
             
-            # --- SIGNAL FINISH ---
-            # When stream ends (process exits), tell frontend
             asyncio.run_coroutine_threadsafe(
                 ws.send_json({'type': 'status', 'msg': 'Program finished'}), 
                 loop
             )
-
         except Exception:
             pass
 
@@ -139,6 +133,8 @@ async def handle_client(request):
                         
                         if compile_process.returncode != 0:
                             await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
+                            # Send explicit error status so frontend knows to show AI button
+                            await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
                             continue 
                         
                         await ws.send_json({'type': 'status', 'msg': 'Running C Binary...'})
@@ -171,6 +167,7 @@ async def handle_client(request):
                         
                         if compile_process.returncode != 0:
                             await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
+                            await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
                             continue
                         
                         await ws.send_json({'type': 'status', 'msg': 'Running C++ Binary...'})
@@ -204,17 +201,17 @@ async def handle_client(request):
                 elif data.get('type') == 'ai_fix':
                     code = data.get('code')
                     error_log = data.get('error')
+                    language = data.get('language', 'c') # Default to C, but respect frontend input
                     
                     if not GEMINI_API_KEY:
                         await ws.send_json({'type': 'ai_error', 'msg': 'Server Error: GEMINI_API_KEY not configured.'})
                         continue
 
-                    # Construct Prompt safely to avoid syntax highlighting bugs
-                    # We avoid triple-quoted f-strings with nested braces
-                    json_format = '{\n    "explanation": "Brief explanation of the bug",\n    "fixed_code": "The full corrected C code"\n}'
+                    # Construct Prompt
+                    json_format = '{\n    "explanation": "Brief explanation of the bug (max 2 sentences)",\n    "fixed_code": "The full corrected code"\n}'
                     
                     prompt = (
-                        "You are an expert C programming debugger.\n"
+                        f"You are an expert {language.upper()} programming debugger.\n"
                         f"CODE:\n{code}\n"
                         f"ERROR OUTPUT:\n{error_log}\n"
                         "TASK:\n"
@@ -222,7 +219,7 @@ async def handle_client(request):
                         "2. Provide a concise explanation.\n"
                         "3. Provide the COMPLETE corrected code.\n"
                         "RESPONSE FORMAT:\n"
-                        "Return ONLY a valid JSON object with no markdown formatting:\n"
+                        "Return ONLY a valid JSON object with no markdown formatting or backticks:\n"
                         f"{json_format}"
                     )
 
@@ -268,7 +265,7 @@ async def handle_client(request):
 async def main():
     port = int(os.environ.get("PORT", 8765))
     app = web.Application()
-    # Route root path to the unified handler (handles both HTTP checks and WS upgrades)
+    # Route root path to the unified handler
     app.add_routes([web.get('/', handle_client)])
     
     runner = web.AppRunner(app)
