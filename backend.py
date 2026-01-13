@@ -7,7 +7,7 @@ import os
 import sys
 import threading
 import re
-import importlib.util
+import importlib. util
 import platform 
 
 # ==================================================================================
@@ -26,7 +26,7 @@ def install_package(package_name, ws=None, loop=None):
         msg = f"Installing missing package: {package_name}..."
         print(msg)
         if ws and loop:
-             asyncio.run_coroutine_threadsafe(
+            asyncio.run_coroutine_threadsafe(
                 ws.send_json({'type': 'status', 'msg': msg}), 
                 loop
             )
@@ -35,8 +35,8 @@ def install_package(package_name, ws=None, loop=None):
     except Exception as e:
         error_msg = f"Failed to install {package_name}: {e}"
         print(error_msg)
-        if ws and loop:  
-             asyncio.run_coroutine_threadsafe(
+        if ws and loop: 
+            asyncio.run_coroutine_threadsafe(
                 ws.send_json({'type': 'stdout', 'data': f"\n[Error] {error_msg}\n"}), 
                 loop
             )
@@ -79,15 +79,15 @@ async def handle_client(request):
                 ws. send_json({'type': 'status', 'msg': 'Program finished'}), 
                 loop
             )
-        except Exception:  
+        except Exception: 
             pass
 
     try:
         async for msg in ws:
-            if msg.type == web.WSMsgType.TEXT:
+            if msg. type == web.WSMsgType.TEXT: 
                 data = json.loads(msg.data)
                 
-                if data.get('type') == 'run':
+                if data. get('type') == 'run':
                     code = data.get('code')
                     language = data.get('language', 'python')
                     
@@ -101,7 +101,7 @@ async def handle_client(request):
                         with open(filename, "w", encoding="utf-8") as f:
                             f.write(code)
                         
-                        # 🔒 SECURITY FIX: Sanitized environment (no API keys)
+                        # 🔒 SECURITY FIX:  Sanitized environment (no API keys)
                         safe_env = {
                             "PYTHONIOENCODING": "utf-8",
                             "PATH": os.environ.get("PATH", ""),
@@ -114,14 +114,14 @@ async def handle_client(request):
                         process = subprocess.Popen(
                             [sys.executable, "-u", filename], 
                             stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess. STDOUT, 
+                            stdout=subprocess. PIPE,
+                            stderr=subprocess.STDOUT, 
                             text=True, 
                             bufsize=0, 
                             encoding='utf-8', 
                             env=safe_env  # ✅ Use sanitized environment
                         )
-                        await ws.send_json({'type': 'status', 'msg': 'Running Python.. .'})
+                        await ws.send_json({'type':  'status', 'msg': 'Running Python.. .'})
 
                     # --- C HANDLING ---
                     elif language == 'c':
@@ -131,7 +131,7 @@ async def handle_client(request):
                         with open(filename, "w", encoding="utf-8") as f:
                             f. write(code)
                         
-                        await ws.send_json({'type':  'status', 'msg':  'Compiling C.. .'})
+                        await ws.send_json({'type':  'status', 'msg':  'Compiling C...'})
                         
                         # 🔒 SECURITY:  Sanitized environment
                         safe_env = {
@@ -154,7 +154,7 @@ async def handle_client(request):
                             await ws.send_json({'type':  'status', 'msg':  'Compilation Failed'})
                             continue 
                         
-                        await ws.send_json({'type': 'status', 'msg': 'Running C Binary...'})
+                        await ws.send_json({'type':  'status', 'msg':  'Running C Binary...'})
                         
                         process = subprocess.Popen(
                             [executable],
@@ -169,7 +169,7 @@ async def handle_client(request):
 
                     # --- C++ HANDLING ---
                     elif language == 'cpp':
-                        filename = "temp_code.cpp"
+                        filename = "temp_code. cpp"
                         executable = "./a.out" if platform.system() != "Windows" else "a.exe"
                         
                         with open(filename, "w", encoding="utf-8") as f:
@@ -214,7 +214,7 @@ async def handle_client(request):
                     if process:
                         loop = asyncio.get_running_loop()
                         thread = threading.Thread(target=read_stream, args=(process.stdout, loop))
-                        thread. daemon = True 
+                        thread.daemon = True 
                         thread.start()
 
                 elif data.get('type') == 'input':
@@ -232,35 +232,35 @@ async def handle_client(request):
                     error_log = data.get('error')
                     language = data.get('language', 'c')
                     
-                    if not GEMINI_API_KEY:  
-                        await ws.send_json({'type': 'ai_error', 'msg':  'Server Error:  GEMINI_API_KEY not configured.'})
+                    if not GEMINI_API_KEY: 
+                        await ws.send_json({'type': 'ai_error', 'msg': 'Server Error: GEMINI_API_KEY not configured.'})
                         continue
 
                     # Construct Prompt - Ask for JSON in plain text
-                    prompt = f"""You are an expert {language. upper()} debugger.  Analyze this code and error, then respond with ONLY a valid JSON object (no markdown, no backticks).
+                    prompt = f"""You are an expert {language.upper()} debugger. Analyze this code and error, then respond with ONLY a valid JSON object (no markdown, no backticks).
 
 CODE:  
 {code}
 
-ERROR: 
+ERROR:  
 {error_log}
 
 Respond in this exact JSON format:
 {{
     "explanation": "Brief 1-2 sentence explanation of the bug",
-    "fixed_code":  "Complete corrected code here"
+    "fixed_code": "Complete corrected code here"
 }}"""
 
                     try:
                         # ✅ FIXED: Use correct stable model endpoint
-                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={GEMINI_API_KEY}"
+                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
                         
                         print(f"[AI] Calling Gemini API...")
                         
                         async with aiohttp.ClientSession() as session:
                             async with session.post(
                                 api_url,
-                                headers={"Content-Type":  "application/json"},
+                                headers={"Content-Type": "application/json"},
                                 json={
                                     "contents": [{"parts": [{"text": prompt}]}],
                                     "generationConfig": {
@@ -272,15 +272,15 @@ Respond in this exact JSON format:
                                 response_text = await resp.text()
                                 
                                 print(f"[AI] Status: {resp.status}")
-                                print(f"[AI] Response preview: {response_text[: 200]}")
+                                print(f"[AI] Response preview: {response_text[:200]}")
                                 
                                 if resp.status != 200:
                                     await ws.send_json({
                                         'type': 'ai_error', 
-                                        'msg': f"AI API Error (Status {resp. status})"
+                                        'msg':  f"AI API Error (Status {resp.status})"
                                     })
                                 else:
-                                    try:
+                                    try: 
                                         result = json.loads(response_text)
                                         
                                         # Extract AI response
@@ -289,15 +289,15 @@ Respond in this exact JSON format:
                                         # Clean markdown if present
                                         ai_text = ai_text.strip()
                                         if ai_text.startswith('```json'):
-                                            ai_text = ai_text.split('```json')[1].split('```')[0].strip()
-                                        elif ai_text.startswith('```'):
+                                            ai_text = ai_text. split('```json')[1].split('```')[0].strip()
+                                        elif ai_text. startswith('```'):
                                             ai_text = ai_text.split('```')[1].split('```')[0].strip()
                                         
                                         # Parse JSON
                                         parsed_response = json.loads(ai_text)
                                         
                                         # Validate structure
-                                        if 'explanation' in parsed_response and 'fixed_code' in parsed_response: 
+                                        if 'explanation' in parsed_response and 'fixed_code' in parsed_response:  
                                             print(f"[AI] Success! Sending response to client")
                                             await ws.send_json({
                                                 'type': 'ai_response', 
@@ -312,13 +312,13 @@ Respond in this exact JSON format:
                                             
                                     except (KeyError, IndexError) as e:
                                         print(f"[AI] API structure error: {e}")
-                                        await ws. send_json({
+                                        await ws.send_json({
                                             'type': 'ai_error', 
                                             'msg': 'Unexpected API response'
                                         })
                                     except json.JSONDecodeError as e:
                                         print(f"[AI] JSON parse error: {e}")
-                                        print(f"[AI] Attempted to parse:  {ai_text[: 300]}")
+                                        print(f"[AI] Attempted to parse: {ai_text[: 300]}")
                                         await ws.send_json({
                                             'type': 'ai_error', 
                                             'msg': 'AI returned invalid JSON'
@@ -326,26 +326,26 @@ Respond in this exact JSON format:
                                     
                     except aiohttp.ClientError as e:
                         print(f"[AI] Network error: {e}")
-                        await ws. send_json({
+                        await ws.send_json({
                             'type': 'ai_error', 
                             'msg': 'Network error'
                         })
-                    except Exception as e:  
+                    except Exception as e:
                         print(f"[AI] Unexpected error: {e}")
                         import traceback
-                        traceback.print_exc()
-                        await ws. send_json({
+                        traceback. print_exc()
+                        await ws.send_json({
                             'type': 'ai_error', 
                             'msg': f'Server error: {type(e).__name__}'
                         })
 
-            elif msg.type == web.WSMsgType.ERROR:
+            elif msg.type == web.WSMsgType. ERROR:
                 print(f'ws connection closed with exception {ws.exception()}')
 
     finally:
-        if process:  
+        if process:
             try:
-                process. kill()
+                process.kill()
             except:
                 pass
         print("Client disconnected")
@@ -353,7 +353,7 @@ Respond in this exact JSON format:
     return ws
 
 async def main():
-    port = int(os.environ. get("PORT", 8765))
+    port = int(os.environ.get("PORT", 8765))
     app = web.Application()
     app.add_routes([web.get('/', handle_client)])
     
@@ -364,9 +364,7 @@ async def main():
     await site.start()
     
     # Keep the server running
-    await asyncio. Event().wait()
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
