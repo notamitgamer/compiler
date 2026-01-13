@@ -1,4 +1,5 @@
 import asyncio
+import aiohttp # Added missing import
 from aiohttp import web
 import json
 import subprocess
@@ -46,7 +47,7 @@ def check_and_install_packages(code, ws=None, loop=None):
     from_imports = re.findall(r'^\s*from\s+(\w+)', code, re.MULTILINE)
     unique_packages = set(imports + from_imports)
     for pkg in unique_packages:
-        if pkg in ['os', 'sys', 'time', 'random', 'math', 'json', 'asyncio', 'threading', 'platform', 'subprocess', 're']:
+        if pkg in ['os', 'sys', 'time', 'random', 'math', 'json', 'asyncio', 'threading', 'platform', 'subprocess', 're', 'aiohttp']:
             continue
         install_package(pkg, ws, loop)
 
