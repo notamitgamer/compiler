@@ -7,8 +7,8 @@ import os
 import sys
 import threading
 import re
-import importlib. util
-import platform 
+import importlib.util
+import platform
 
 # ==================================================================================
 # CLOUD COMPILER SERVER (AIOHTTP) - RENDER COMPATIBLE - SECURE VERSION
@@ -76,18 +76,18 @@ async def handle_client(request):
                 )
             
             asyncio.run_coroutine_threadsafe(
-                ws. send_json({'type': 'status', 'msg': 'Program finished'}), 
+                ws.send_json({'type': 'status', 'msg': 'Program finished'}), 
                 loop
             )
         except Exception: 
             pass
 
     try:
-        async for msg in ws:
-            if msg. type == web.WSMsgType.TEXT: 
+        async for msg in ws: 
+            if msg.type == web.WSMsgType.TEXT: 
                 data = json.loads(msg.data)
                 
-                if data. get('type') == 'run':
+                if data.get('type') == 'run':
                     code = data.get('code')
                     language = data.get('language', 'python')
                     
@@ -114,14 +114,14 @@ async def handle_client(request):
                         process = subprocess.Popen(
                             [sys.executable, "-u", filename], 
                             stdin=subprocess.PIPE,
-                            stdout=subprocess. PIPE,
+                            stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, 
                             text=True, 
                             bufsize=0, 
                             encoding='utf-8', 
                             env=safe_env  # ✅ Use sanitized environment
                         )
-                        await ws.send_json({'type':  'status', 'msg': 'Running Python.. .'})
+                        await ws.send_json({'type': 'status', 'msg': 'Running Python...'})
 
                     # --- C HANDLING ---
                     elif language == 'c':
@@ -129,16 +129,16 @@ async def handle_client(request):
                         executable = "./a.out" if platform.system() != "Windows" else "a.exe"
                         
                         with open(filename, "w", encoding="utf-8") as f:
-                            f. write(code)
+                            f.write(code)
                         
-                        await ws.send_json({'type':  'status', 'msg':  'Compiling C...'})
+                        await ws.send_json({'type': 'status', 'msg': 'Compiling C...'})
                         
                         # 🔒 SECURITY:  Sanitized environment
                         safe_env = {
                             "PATH": os.environ.get("PATH", ""),
                             "HOME": os.environ.get("HOME", ""),
                             "USER": os.environ.get("USER", ""),
-                            "LANG": os.environ.get("LANG", "en_US. UTF-8"),
+                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
                             "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
                         }
                         
@@ -152,13 +152,13 @@ async def handle_client(request):
                         if compile_process.returncode != 0:
                             await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
                             await ws.send_json({'type':  'status', 'msg':  'Compilation Failed'})
-                            continue 
+                            continue
                         
-                        await ws.send_json({'type':  'status', 'msg':  'Running C Binary...'})
+                        await ws.send_json({'type': 'status', 'msg': 'Running C Binary...'})
                         
                         process = subprocess.Popen(
                             [executable],
-                            stdin=subprocess. PIPE,
+                            stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
                             text=True,
@@ -169,7 +169,7 @@ async def handle_client(request):
 
                     # --- C++ HANDLING ---
                     elif language == 'cpp':
-                        filename = "temp_code. cpp"
+                        filename = "temp_code.cpp"
                         executable = "./a.out" if platform.system() != "Windows" else "a.exe"
                         
                         with open(filename, "w", encoding="utf-8") as f:
@@ -182,8 +182,8 @@ async def handle_client(request):
                             "PATH": os.environ.get("PATH", ""),
                             "HOME": os.environ.get("HOME", ""),
                             "USER": os.environ.get("USER", ""),
-                            "LANG": os. environ.get("LANG", "en_US.UTF-8"),
-                            "TMPDIR":  os.environ.get("TMPDIR", "/tmp"),
+                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+                            "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
                         }
                         
                         compile_process = subprocess.run(
@@ -194,11 +194,11 @@ async def handle_client(request):
                         )
                         
                         if compile_process.returncode != 0:
-                            await ws. send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
+                            await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
                             await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
                             continue
                         
-                        await ws. send_json({'type': 'status', 'msg': 'Running C++ Binary...'})
+                        await ws.send_json({'type': 'status', 'msg': 'Running C++ Binary...'})
                         
                         process = subprocess.Popen(
                             [executable],
@@ -214,7 +214,7 @@ async def handle_client(request):
                     if process:
                         loop = asyncio.get_running_loop()
                         thread = threading.Thread(target=read_stream, args=(process.stdout, loop))
-                        thread.daemon = True 
+                        thread.daemon = True
                         thread.start()
 
                 elif data.get('type') == 'input':
@@ -222,7 +222,7 @@ async def handle_client(request):
                         user_input = data.get('data')
                         try:
                             process.stdin.write(user_input)
-                            process.stdin. flush()
+                            process.stdin.flush()
                         except Exception:
                             pass
 
@@ -237,7 +237,7 @@ async def handle_client(request):
                         continue
 
                     # Construct Prompt - Ask for JSON in plain text
-                    prompt = f"""You are an expert {language.upper()} debugger. Analyze this code and error, then respond with ONLY a valid JSON object (no markdown, no backticks).
+                    prompt = f"""You are an expert {language.upper()} debugger.  Analyze this code and error, then respond with ONLY a valid JSON object (no markdown, no backticks).
 
 CODE:  
 {code}
@@ -277,7 +277,7 @@ Respond in this exact JSON format:
                                 if resp.status != 200:
                                     await ws.send_json({
                                         'type': 'ai_error', 
-                                        'msg':  f"AI API Error (Status {resp.status})"
+                                        'msg': f"AI API Error (Status {resp.status})"
                                     })
                                 else:
                                     try: 
@@ -289,22 +289,22 @@ Respond in this exact JSON format:
                                         # Clean markdown if present
                                         ai_text = ai_text.strip()
                                         if ai_text.startswith('```json'):
-                                            ai_text = ai_text. split('```json')[1].split('```')[0].strip()
-                                        elif ai_text. startswith('```'):
+                                            ai_text = ai_text.split('```json')[1].split('```')[0].strip()
+                                        elif ai_text.startswith('```'):
                                             ai_text = ai_text.split('```')[1].split('```')[0].strip()
                                         
                                         # Parse JSON
                                         parsed_response = json.loads(ai_text)
                                         
                                         # Validate structure
-                                        if 'explanation' in parsed_response and 'fixed_code' in parsed_response:  
+                                        if 'explanation' in parsed_response and 'fixed_code' in parsed_response:
                                             print(f"[AI] Success! Sending response to client")
                                             await ws.send_json({
                                                 'type': 'ai_response', 
                                                 'data': parsed_response
                                             })
-                                        else:
-                                            print(f"[AI] Invalid structure:  {parsed_response}")
+                                        else: 
+                                            print(f"[AI] Invalid structure: {parsed_response}")
                                             await ws.send_json({
                                                 'type': 'ai_error', 
                                                 'msg': 'Invalid AI response format'
@@ -318,7 +318,7 @@ Respond in this exact JSON format:
                                         })
                                     except json.JSONDecodeError as e:
                                         print(f"[AI] JSON parse error: {e}")
-                                        print(f"[AI] Attempted to parse: {ai_text[: 300]}")
+                                        print(f"[AI] Attempted to parse: {ai_text[:300]}")
                                         await ws.send_json({
                                             'type': 'ai_error', 
                                             'msg': 'AI returned invalid JSON'
@@ -333,13 +333,13 @@ Respond in this exact JSON format:
                     except Exception as e:
                         print(f"[AI] Unexpected error: {e}")
                         import traceback
-                        traceback. print_exc()
+                        traceback.print_exc()
                         await ws.send_json({
                             'type': 'ai_error', 
                             'msg': f'Server error: {type(e).__name__}'
                         })
 
-            elif msg.type == web.WSMsgType. ERROR:
+            elif msg.type == web.WSMsgType.ERROR:
                 print(f'ws connection closed with exception {ws.exception()}')
 
     finally:
