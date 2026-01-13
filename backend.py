@@ -169,7 +169,7 @@ async def handle_client(request):
 
                     # --- C++ HANDLING ---
                     elif language == 'cpp':
-                        filename = "temp_code. cpp"
+                        filename = "temp_code.cpp"
                         executable = "./a.out" if platform.system() != "Windows" else "a.exe"
                         
                         with open(filename, "w", encoding="utf-8") as f:
@@ -368,4 +368,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
