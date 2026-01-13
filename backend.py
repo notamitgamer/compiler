@@ -15,7 +15,7 @@ import platform
 # ==================================================================================
 
 # Get API Key from Environment
-GEMINI_API_KEY = os. environ.get("GEMINI_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 def install_package(package_name, ws=None, loop=None):
     """Attempt to install a python package via pip."""
@@ -84,10 +84,10 @@ async def handle_client(request):
 
     try:
         async for msg in ws:
-            if msg. type == web.WSMsgType.TEXT: 
+            if msg.type == web.WSMsgType.TEXT:
                 data = json.loads(msg.data)
                 
-                if data.get('type') == 'run': 
+                if data. get('type') == 'run': 
                     code = data.get('code')
                     language = data.get('language', 'python')
                     
@@ -108,14 +108,14 @@ async def handle_client(request):
                             "PYTHONPATH": os.environ. get("PYTHONPATH", ""),
                             "HOME": os.environ.get("HOME", ""),
                             "USER": os.environ.get("USER", ""),
-                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+                            "LANG":  os.environ.get("LANG", "en_US.UTF-8"),
                         }
 
                         process = subprocess.Popen(
-                            [sys.executable, "-u", filename], 
+                            [sys. executable, "-u", filename], 
                             stdin=subprocess.PIPE,
-                            stdout=subprocess. PIPE,
-                            stderr=subprocess.STDOUT, 
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess. STDOUT, 
                             text=True, 
                             bufsize=0, 
                             encoding='utf-8', 
@@ -124,41 +124,52 @@ async def handle_client(request):
                         await ws.send_json({'type':  'status', 'msg':  'Running Python.. .'})
 
                     # --- C HANDLING ---
-                    elif language == 'c':
+                    elif language == 'c': 
                         filename = "temp_code.c"
-                        executable = "./a.out" if platform.system() != "Windows" else "a.exe"
+                        executable = "./a.out" if platform. system() != "Windows" else "a.exe"
                         
                         with open(filename, "w", encoding="utf-8") as f:
                             f. write(code)
                         
-                        await ws.send_json({'type':  'status', 'msg':  'Compiling C.. .'})
+                        await ws.send_json({'type':  'status', 'msg':  'Compiling C...'})
+                        
+                        # 🔒 SECURITY:  Sanitized environment for compilation
+                        safe_env = {
+                            "PATH": os.environ. get("PATH", ""),
+                            "HOME": os.environ. get("HOME", ""),
+                            "USER": os.environ. get("USER", ""),
+                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+                            "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
+                        }
                         
                         compile_process = subprocess.run(
                             ["gcc", filename, "-o", executable],
                             capture_output=True,
-                            text=True
+                            text=True,
+                            env=safe_env  # ✅ Sanitized env for compilation
                         )
                         
                         if compile_process.returncode != 0:
-                            await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
+                            await ws. send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
                             await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
                             continue 
                         
-                        await ws.send_json({'type':  'status', 'msg':  'Running C Binary...'})
+                        await ws.send_json({'type': 'status', 'msg': 'Running C Binary...'})
                         
                         process = subprocess.Popen(
                             [executable],
-                            stdin=subprocess. PIPE,
+                            stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
                             text=True,
                             bufsize=0,
-                            encoding='utf-8'
+                            encoding='utf-8',
+                            env=safe_env  # ✅ Sanitized env for execution
                         )
 
                     # --- C++ HANDLING ---
                     elif language == 'cpp':
-                        filename = "temp_code. cpp"
+                        filename = "temp_code.cpp"
                         executable = "./a.out" if platform.system() != "Windows" else "a.exe"
                         
                         with open(filename, "w", encoding="utf-8") as f:
@@ -166,14 +177,24 @@ async def handle_client(request):
                         
                         await ws.send_json({'type': 'status', 'msg': 'Compiling C++...'})
                         
-                        compile_process = subprocess. run(
+                        # 🔒 SECURITY:  Sanitized environment for compilation
+                        safe_env = {
+                            "PATH": os.environ. get("PATH", ""),
+                            "HOME": os.environ. get("HOME", ""),
+                            "USER": os.environ. get("USER", ""),
+                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+                            "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
+                        }
+                        
+                        compile_process = subprocess.run(
                             ["g++", filename, "-o", executable],
                             capture_output=True,
-                            text=True
+                            text=True,
+                            env=safe_env  # ✅ Sanitized env for compilation
                         )
                         
                         if compile_process.returncode != 0:
-                            await ws.send_json({'type':  'stdout', 'data':  f"Compilation Error:\n{compile_process.stderr}"})
+                            await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
                             await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
                             continue
                         
@@ -186,7 +207,8 @@ async def handle_client(request):
                             stderr=subprocess.STDOUT,
                             text=True,
                             bufsize=0,
-                            encoding='utf-8'
+                            encoding='utf-8',
+                            env=safe_env  # ✅ Sanitized env for execution
                         )
 
                     if process:
@@ -200,7 +222,7 @@ async def handle_client(request):
                         user_input = data.get('data')
                         try:
                             process.stdin.write(user_input)
-                            process.stdin.flush()
+                            process.stdin. flush()
                         except Exception: 
                             pass
 
@@ -245,14 +267,14 @@ async def handle_client(request):
                                     "contents": [{"parts": [{"text": prompt}]}],
                                     "generationConfig": {
                                         "temperature": 0.2,
-                                        "responseMimeType":  "application/json"
+                                        "responseMimeType": "application/json"
                                     }
                                 }
                             ) as resp:
                                 if resp.status != 200:
                                     error_body = await resp.text()
                                     print(f"Gemini API Error {resp.status}: {error_body}")
-                                    await ws.send_json({'type': 'ai_error', 'msg': f"AI API Error (Status {resp.status})"})
+                                    await ws. send_json({'type': 'ai_error', 'msg':  f"AI API Error (Status {resp.status})"})
                                 else:
                                     result = await resp.json()
                                     # Extract text from Gemini response structure
@@ -262,15 +284,15 @@ async def handle_client(request):
                                         
                                         # Send back to client
                                         await ws.send_json({
-                                            'type':  'ai_response', 
-                                            'data':  parsed_response
+                                            'type': 'ai_response', 
+                                            'data': parsed_response
                                         })
                                     except (KeyError, IndexError, json.JSONDecodeError) as parse_error:
                                         print(f"Response parsing error: {parse_error}")
                                         print(f"Raw response: {result}")
-                                        await ws.send_json({'type': 'ai_error', 'msg': "Failed to parse AI response"})
+                                        await ws. send_json({'type': 'ai_error', 'msg': "Failed to parse AI response"})
                                     
-                    except Exception as e: 
+                    except Exception as e:
                         print(f"AI Error: {e}")
                         await ws.send_json({'type':  'ai_error', 'msg': "Server processing error occurred"})
 
@@ -278,7 +300,7 @@ async def handle_client(request):
                 print(f'ws connection closed with exception {ws.exception()}')
 
     finally:
-        if process:  
+        if process:
             try:
                 process.kill()
             except:
@@ -301,5 +323,5 @@ async def main():
     # Keep the server running
     await asyncio.Event().wait()
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     asyncio.run(main())
