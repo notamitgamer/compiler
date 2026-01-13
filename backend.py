@@ -7,7 +7,7 @@ import os
 import sys
 import threading
 import re
-import importlib.util
+import importlib. util
 import platform 
 
 # ==================================================================================
@@ -35,7 +35,7 @@ def install_package(package_name, ws=None, loop=None):
     except Exception as e:
         error_msg = f"Failed to install {package_name}: {e}"
         print(error_msg)
-        if ws and loop:
+        if ws and loop: 
              asyncio.run_coroutine_threadsafe(
                 ws.send_json({'type': 'stdout', 'data': f"\n[Error] {error_msg}\n"}), 
                 loop
@@ -76,18 +76,18 @@ async def handle_client(request):
                 )
             
             asyncio.run_coroutine_threadsafe(
-                ws.send_json({'type': 'status', 'msg': 'Program finished'}), 
+                ws. send_json({'type': 'status', 'msg': 'Program finished'}), 
                 loop
             )
-        except Exception:
+        except Exception: 
             pass
 
     try:
         async for msg in ws:
-            if msg.type == web.WSMsgType.TEXT:
+            if msg. type == web.WSMsgType.TEXT: 
                 data = json.loads(msg.data)
                 
-                if data.get('type') == 'run':
+                if data. get('type') == 'run': 
                     code = data.get('code')
                     language = data.get('language', 'python')
                     
@@ -101,20 +101,27 @@ async def handle_client(request):
                         with open(filename, "w", encoding="utf-8") as f:
                             f.write(code)
                         
-                        env = os.environ.copy()
-                        env["PYTHONIOENCODING"] = "utf-8"
+                        # 🔒 SECURITY FIX: Use sanitized environment (no API keys or secrets)
+                        safe_env = {
+                            "PYTHONIOENCODING": "utf-8",
+                            "PATH":  os.environ.get("PATH", ""),
+                            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+                            "HOME": os.environ.get("HOME", ""),
+                            "USER": os.environ.get("USER", ""),
+                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+                        }
 
                         process = subprocess.Popen(
-                            [sys.executable, "-u", filename], 
-                            stdin=subprocess.PIPE,
+                            [sys. executable, "-u", filename], 
+                            stdin=subprocess. PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, 
                             text=True, 
                             bufsize=0, 
                             encoding='utf-8', 
-                            env=env
+                            env=safe_env  # ✅ Use sanitized environment instead of os.environ. copy()
                         )
-                        await ws.send_json({'type': 'status', 'msg': 'Running Python...'})
+                        await ws.send_json({'type': 'status', 'msg': 'Running Python.. .'})
 
                     # --- C HANDLING ---
                     elif language == 'c':
@@ -124,7 +131,7 @@ async def handle_client(request):
                         with open(filename, "w", encoding="utf-8") as f:
                             f.write(code)
                         
-                        await ws.send_json({'type': 'status', 'msg': 'Compiling C...'})
+                        await ws.send_json({'type': 'status', 'msg': 'Compiling C.. .'})
                         
                         compile_process = subprocess.run(
                             ["gcc", filename, "-o", executable],
@@ -138,11 +145,11 @@ async def handle_client(request):
                             await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
                             continue 
                         
-                        await ws.send_json({'type': 'status', 'msg': 'Running C Binary...'})
+                        await ws.send_json({'type':  'status', 'msg':  'Running C Binary...'})
                         
                         process = subprocess.Popen(
                             [executable],
-                            stdin=subprocess.PIPE,
+                            stdin=subprocess. PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
                             text=True,
@@ -152,7 +159,7 @@ async def handle_client(request):
 
                     # --- C++ HANDLING ---
                     elif language == 'cpp':
-                        filename = "temp_code.cpp"
+                        filename = "temp_code. cpp"
                         executable = "./a.out" if platform.system() != "Windows" else "a.exe"
                         
                         with open(filename, "w", encoding="utf-8") as f:
@@ -160,15 +167,15 @@ async def handle_client(request):
                         
                         await ws.send_json({'type': 'status', 'msg': 'Compiling C++...'})
                         
-                        compile_process = subprocess.run(
+                        compile_process = subprocess. run(
                             ["g++", filename, "-o", executable],
                             capture_output=True,
                             text=True
                         )
                         
                         if compile_process.returncode != 0:
-                            await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
-                            await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
+                            await ws.send_json({'type':  'stdout', 'data':  f"Compilation Error:\n{compile_process.stderr}"})
+                            await ws.send_json({'type':  'status', 'msg':  'Compilation Failed'})
                             continue
                         
                         await ws.send_json({'type': 'status', 'msg': 'Running C++ Binary...'})
@@ -176,7 +183,7 @@ async def handle_client(request):
                         process = subprocess.Popen(
                             [executable],
                             stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
+                            stdout=subprocess. PIPE,
                             stderr=subprocess.STDOUT,
                             text=True,
                             bufsize=0,
@@ -194,25 +201,25 @@ async def handle_client(request):
                         user_input = data.get('data')
                         try:
                             process.stdin.write(user_input)
-                            process.stdin.flush()
-                        except Exception:
+                            process.stdin. flush()
+                        except Exception: 
                             pass
 
-                # --- NEW: AI FIX HANDLER ---
+                # --- AI FIX HANDLER (with secure API call) ---
                 elif data.get('type') == 'ai_fix':
                     code = data.get('code')
                     error_log = data.get('error')
-                    language = data.get('language', 'c') # Default to C, but respect frontend input
+                    language = data.get('language', 'c')
                     
-                    if not GEMINI_API_KEY:
-                        await ws.send_json({'type': 'ai_error', 'msg': 'Server Error: GEMINI_API_KEY not configured.'})
+                    if not GEMINI_API_KEY: 
+                        await ws.send_json({'type': 'ai_error', 'msg': 'Server Error:  GEMINI_API_KEY not configured.'})
                         continue
 
                     # Construct Prompt
                     json_format = '{\n    "explanation": "Brief explanation of the bug (max 2 sentences)",\n    "fixed_code": "The full corrected code"\n}'
                     
                     prompt = (
-                        f"You are an expert {language.upper()} programming debugger.\n"
+                        f"You are an expert {language. upper()} programming debugger.\n"
                         f"CODE:\n{code}\n"
                         f"ERROR OUTPUT:\n{error_log}\n"
                         "TASK:\n"
@@ -225,16 +232,24 @@ async def handle_client(request):
                     )
 
                     try:
-                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={GEMINI_API_KEY}"
+                        # 🔒 SECURITY FIX: Use header-based authentication instead of URL parameter
+                        api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2. 0-flash-exp:generateContent"
                         
                         async with aiohttp.ClientSession() as session:
-                            async with session.post(api_url, json={
-                                "contents": [{ "parts": [{ "text": prompt }] }],
-                                "generationConfig": { "responseMimeType": "application/json" }
-                            }) as resp:
+                            async with session.post(
+                                api_url,
+                                headers={
+                                    "x-goog-api-key":  GEMINI_API_KEY,  # ✅ Secure:  API key in header
+                                    "Content-Type": "application/json"
+                                },
+                                json={
+                                    "contents": [{ "parts": [{ "text":  prompt }] }],
+                                    "generationConfig": { "responseMimeType": "application/json" }
+                                }
+                            ) as resp:
                                 if resp.status != 200:
-                                    error_text = await resp.text()
-                                    await ws.send_json({'type': 'ai_error', 'msg': f"AI API Error: {error_text}"})
+                                    # ✅ Don't leak URL or sensitive info in errors
+                                    await ws.send_json({'type': 'ai_error', 'msg': f"AI API Error (Status {resp.status})"})
                                 else:
                                     result = await resp.json()
                                     # Extract text from Gemini response structure
@@ -248,13 +263,13 @@ async def handle_client(request):
                                     
                     except Exception as e:
                          print(f"AI Error: {e}")
-                         await ws.send_json({'type': 'ai_error', 'msg': f"Server Processing Error: {str(e)}"})
+                         await ws.send_json({'type':  'ai_error', 'msg': "Server processing error occurred"})
 
-            elif msg.type == web.WSMsgType.ERROR:
+            elif msg.type == web.WSMsgType. ERROR:
                 print(f'ws connection closed with exception {ws.exception()}')
 
     finally:
-        if process: 
+        if process:  
             try:
                 process.kill()
             except:
@@ -279,4 +294,4 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio. run(main())
