@@ -7,11 +7,14 @@ import sys
 import threading
 import re
 import importlib.util
-import platform  # <--- FIXED: Added missing import
+import platform 
 
 # ==================================================================================
 # CLOUD COMPILER SERVER (AIOHTTP) - RENDER COMPATIBLE
 # ==================================================================================
+
+# Get API Key from Environment (Set this in Render Dashboard)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 def install_package(package_name, ws=None, loop=None):
     """Attempt to install a python package via pip."""
@@ -196,12 +199,68 @@ async def handle_client(request):
                             process.stdin.flush()
                         except Exception:
                             pass
-            
+
+                # --- NEW: AI FIX HANDLER ---
+                elif data.get('type') == 'ai_fix':
+                    code = data.get('code')
+                    error_log = data.get('error')
+                    
+                    if not GEMINI_API_KEY:
+                        await ws.send_json({'type': 'ai_error', 'msg': 'Server Error: GEMINI_API_KEY not configured.'})
+                        continue
+
+                    # Construct Prompt safely to avoid syntax highlighting bugs
+                    # We avoid triple-quoted f-strings with nested braces
+                    json_format = '{\n    "explanation": "Brief explanation of the bug",\n    "fixed_code": "The full corrected C code"\n}'
+                    
+                    prompt = (
+                        "You are an expert C programming debugger.\n"
+                        f"CODE:\n{code}\n"
+                        f"ERROR OUTPUT:\n{error_log}\n"
+                        "TASK:\n"
+                        "1. Analyze the error.\n"
+                        "2. Provide a concise explanation.\n"
+                        "3. Provide the COMPLETE corrected code.\n"
+                        "RESPONSE FORMAT:\n"
+                        "Return ONLY a valid JSON object with no markdown formatting:\n"
+                        f"{json_format}"
+                    )
+
+                    try:
+                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={GEMINI_API_KEY}"
+                        
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(api_url, json={
+                                "contents": [{ "parts": [{ "text": prompt }] }],
+                                "generationConfig": { "responseMimeType": "application/json" }
+                            }) as resp:
+                                if resp.status != 200:
+                                    error_text = await resp.text()
+                                    await ws.send_json({'type': 'ai_error', 'msg': f"AI API Error: {error_text}"})
+                                else:
+                                    result = await resp.json()
+                                    # Extract text from Gemini response structure
+                                    content_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
+                                    
+                                    # Send back to client
+                                    await ws.send_json({
+                                        'type': 'ai_response', 
+                                        'data': json.loads(content_text)
+                                    })
+                                    
+                    except Exception as e:
+                         print(f"AI Error: {e}")
+                         await ws.send_json({'type': 'ai_error', 'msg': f"Server Processing Error: {str(e)}"})
+
             elif msg.type == web.WSMsgType.ERROR:
                 print(f'ws connection closed with exception {ws.exception()}')
 
     finally:
-        if process: process.kill()
+        if process: 
+            try:
+                process.kill()
+            except:
+                pass
         print("Client disconnected")
 
     return ws
