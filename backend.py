@@ -85,7 +85,7 @@ async def handle_client(request):
                 )
             
             asyncio.run_coroutine_threadsafe(
-                ws. send_json({'type': 'status', 'msg': 'Program finished'}), 
+                ws.send_json({'type': 'status', 'msg': 'Program finished'}), 
                 loop
             )
         except Exception:  
@@ -124,13 +124,13 @@ async def handle_client(request):
                             [sys.executable, "-u", filename], 
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
-                            stderr=subprocess. STDOUT, 
+                            stderr=subprocess.STDOUT, 
                             text=True, 
                             bufsize=0, 
                             encoding='utf-8', 
                             env=safe_env  # ✅ Use sanitized environment
                         )
-                        await ws.send_json({'type': 'status', 'msg': 'Running Python.. .'})
+                        await ws.send_json({'type': 'status', 'msg': 'Running Python...'})
 
                     # --- C HANDLING ---
                     elif language == 'c':
@@ -138,16 +138,16 @@ async def handle_client(request):
                         executable = os.path.join(session_dir, "a.out") if platform.system() != "Windows" else os.path.join(session_dir, "a.exe")
                         
                         with open(filename, "w", encoding="utf-8") as f:
-                            f. write(code)
+                            f.write(code)
                         
-                        await ws.send_json({'type':  'status', 'msg':  'Compiling C.. .'})
+                        await ws.send_json({'type':  'status', 'msg':  'Compiling C...'})
                         
                         # 🔒 SECURITY:  Sanitized environment
                         safe_env = {
                             "PATH": os.environ.get("PATH", ""),
                             "HOME": os.environ.get("HOME", ""),
                             "USER": os.environ.get("USER", ""),
-                            "LANG": os.environ.get("LANG", "en_US. UTF-8"),
+                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
                             "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
                         }
                         
@@ -167,7 +167,7 @@ async def handle_client(request):
                         
                         process = subprocess.Popen(
                             [executable],
-                            stdin=subprocess. PIPE,
+                            stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
                             text=True,
@@ -178,7 +178,7 @@ async def handle_client(request):
 
                     # --- C++ HANDLING ---
                     elif language == 'cpp':
-                        # FIXED: Removed the space in "temp_code. cpp"
+                        # FIXED: Removed the space in "temp_code.cpp"
                         filename = os.path.join(session_dir, "temp_code.cpp")
                         executable = os.path.join(session_dir, "a.out") if platform.system() != "Windows" else os.path.join(session_dir, "a.exe")
                         
@@ -192,7 +192,7 @@ async def handle_client(request):
                             "PATH": os.environ.get("PATH", ""),
                             "HOME": os.environ.get("HOME", ""),
                             "USER": os.environ.get("USER", ""),
-                            "LANG": os. environ.get("LANG", "en_US.UTF-8"),
+                            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
                             "TMPDIR":  os.environ.get("TMPDIR", "/tmp"),
                         }
                         
@@ -204,11 +204,11 @@ async def handle_client(request):
                         )
                         
                         if compile_process.returncode != 0:
-                            await ws. send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
+                            await ws.send_json({'type': 'stdout', 'data': f"Compilation Error:\n{compile_process.stderr}"})
                             await ws.send_json({'type': 'status', 'msg': 'Compilation Failed'})
                             continue
                         
-                        await ws. send_json({'type': 'status', 'msg': 'Running C++ Binary...'})
+                        await ws.send_json({'type': 'status', 'msg': 'Running C++ Binary...'})
                         
                         process = subprocess.Popen(
                             [executable],
@@ -224,7 +224,7 @@ async def handle_client(request):
                     if process:
                         loop = asyncio.get_running_loop()
                         thread = threading.Thread(target=read_stream, args=(process.stdout, loop))
-                        thread. daemon = True 
+                        thread.daemon = True 
                         thread.start()
 
                 elif data.get('type') == 'input':
@@ -232,7 +232,7 @@ async def handle_client(request):
                         user_input = data.get('data')
                         try:
                             process.stdin.write(user_input)
-                            process.stdin. flush()
+                            process.stdin.flush()
                         except Exception:
                             pass
 
@@ -247,7 +247,7 @@ async def handle_client(request):
                         continue
 
                     # Construct Prompt - Ask for JSON in plain text
-                    prompt = f"""You are an expert {language. upper()} debugger.  Analyze this code and error, then respond with ONLY a valid JSON object (no markdown, no backticks).
+                    prompt = f"""You are an expert {language.upper()} debugger. Analyze this code and error, then respond with ONLY a valid JSON object (no markdown, no backticks).
 
 CODE:  
 {code}
@@ -287,7 +287,7 @@ Respond in this exact JSON format:
                                 if resp.status != 200:
                                     await ws.send_json({
                                         'type': 'ai_error', 
-                                        'msg': f"AI API Error (Status {resp. status})"
+                                        'msg': f"AI API Error (Status {resp.status})"
                                     })
                                 else:
                                     try:
@@ -322,7 +322,7 @@ Respond in this exact JSON format:
                                             
                                     except (KeyError, IndexError) as e:
                                         print(f"[AI] API structure error: {e}")
-                                        await ws. send_json({
+                                        await ws.send_json({
                                             'type': 'ai_error', 
                                             'msg': 'Unexpected API response'
                                         })
@@ -336,7 +336,7 @@ Respond in this exact JSON format:
                                     
                     except aiohttp.ClientError as e:
                         print(f"[AI] Network error: {e}")
-                        await ws. send_json({
+                        await ws.send_json({
                             'type': 'ai_error', 
                             'msg': 'Network error'
                         })
@@ -344,7 +344,7 @@ Respond in this exact JSON format:
                         print(f"[AI] Unexpected error: {e}")
                         import traceback
                         traceback.print_exc()
-                        await ws. send_json({
+                        await ws.send_json({
                             'type': 'ai_error', 
                             'msg': f'Server error: {type(e).__name__}'
                         })
@@ -355,7 +355,7 @@ Respond in this exact JSON format:
     finally:
         if process:  
             try:
-                process. kill()
+                process.kill()
             except:
                 pass
         # Clean up session directory
@@ -373,7 +373,7 @@ async def main():
     os.makedirs("temp_sessions", exist_ok=True)
     print("temp_sessions directory ready")
     
-    port = int(os.environ. get("PORT", 8765))
+    port = int(os.environ.get("PORT", 8765))
     app = web.Application()
     app.add_routes([web.get('/', handle_client)])
     
@@ -384,7 +384,8 @@ async def main():
     await site.start()
     
     # Keep the server running
-    await asyncio. Event().wait()
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
+
