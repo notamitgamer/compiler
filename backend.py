@@ -8,7 +8,9 @@ import sys
 import threading
 import re
 import importlib.util
-import platform 
+import platform
+import uuid
+import shutil
 
 # ==================================================================================
 # CLOUD COMPILER SERVER (AIOHTTP) - RENDER COMPATIBLE - SECURE VERSION
@@ -61,6 +63,13 @@ async def handle_client(request):
     await ws.prepare(request)
     
     print(f"Client connected: {request.remote}")
+    
+    # Create unique session directory for this client
+    session_id = str(uuid.uuid4())
+    session_dir = os.path.join("temp_sessions", session_id)
+    os.makedirs(session_dir, exist_ok=True)
+    print(f"Created session directory: {session_dir}")
+    
     process = None
     
     # Helper to read output stream in a separate thread
@@ -97,7 +106,7 @@ async def handle_client(request):
                         loop = asyncio.get_running_loop()
                         await loop.run_in_executor(None, check_and_install_packages, code, ws, loop)
                         
-                        filename = "temp_script.py"
+                        filename = os.path.join(session_dir, "temp_script.py")
                         with open(filename, "w", encoding="utf-8") as f:
                             f.write(code)
                         
@@ -125,8 +134,8 @@ async def handle_client(request):
 
                     # --- C HANDLING ---
                     elif language == 'c':
-                        filename = "temp_code.c"
-                        executable = "./a.out" if platform.system() != "Windows" else "a.exe"
+                        filename = os.path.join(session_dir, "temp_code.c")
+                        executable = os.path.join(session_dir, "a.out") if platform.system() != "Windows" else os.path.join(session_dir, "a.exe")
                         
                         with open(filename, "w", encoding="utf-8") as f:
                             f. write(code)
@@ -143,7 +152,7 @@ async def handle_client(request):
                         }
                         
                         compile_process = subprocess.run(
-                            ["gcc", filename, "-o", executable],
+                            ["gcc", filename, "-o", executable, "-lm", "-pthread"],
                             capture_output=True,
                             text=True,
                             env=safe_env
@@ -170,8 +179,8 @@ async def handle_client(request):
                     # --- C++ HANDLING ---
                     elif language == 'cpp':
                         # FIXED: Removed the space in "temp_code. cpp"
-                        filename = "temp_code.cpp"
-                        executable = "./a.out" if platform.system() != "Windows" else "a.exe"
+                        filename = os.path.join(session_dir, "temp_code.cpp")
+                        executable = os.path.join(session_dir, "a.out") if platform.system() != "Windows" else os.path.join(session_dir, "a.exe")
                         
                         with open(filename, "w", encoding="utf-8") as f:
                             f.write(code)
@@ -188,7 +197,7 @@ async def handle_client(request):
                         }
                         
                         compile_process = subprocess.run(
-                            ["g++", filename, "-o", executable],
+                            ["g++", filename, "-o", executable, "-lm", "-pthread"],
                             capture_output=True,
                             text=True,
                             env=safe_env
@@ -349,11 +358,21 @@ Respond in this exact JSON format:
                 process. kill()
             except:
                 pass
+        # Clean up session directory
+        try:
+            shutil.rmtree(session_dir, ignore_errors=True)
+            print(f"Cleaned up session directory: {session_dir}")
+        except:
+            pass
         print("Client disconnected")
 
     return ws
 
 async def main():
+    # Create temp_sessions directory if it doesn't exist
+    os.makedirs("temp_sessions", exist_ok=True)
+    print("temp_sessions directory ready")
+    
     port = int(os.environ. get("PORT", 8765))
     app = web.Application()
     app.add_routes([web.get('/', handle_client)])

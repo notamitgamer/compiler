@@ -1,0 +1,30 @@
+# Temporary session directories
+temp_sessions/
+
+# Python temporary files
+temp_script.py
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# C/C++ temporary files
+temp_code.c
+temp_code.cpp
+a.out
+a.exe
+*.o
+*.so
+*.dylib
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
