@@ -262,8 +262,7 @@ Respond in this exact JSON format:
 }}"""
 
                     try:
-                        # ✅ FIXED: Use correct stable model endpoint
-                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={GEMINI_API_KEY}"
+                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
                         
                         print(f"[AI] Calling Gemini API...")
                         
@@ -388,4 +387,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
