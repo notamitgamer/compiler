@@ -242,8 +242,8 @@ async def handle_client(request):
                     error_log = data.get('error')
                     language = data.get('language', 'c')
                     
-                    if not GEMINI_API_KEY:  
-                        await ws.send_json({'type': 'ai_error', 'msg':  'Server Error:  GEMINI_API_KEY not configured.'})
+                    if not _API_KEY:  
+                        await ws.send_json({'type': 'ai_error', 'msg':  'Server Error:  _API_KEY not configured.'})
                         continue
 
                     # Construct Prompt - Ask for JSON in plain text
@@ -262,7 +262,7 @@ Respond in this exact JSON format:
 }}"""
 
                     try:
-                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={GEMINI_API_KEY}"
                         
                         print(f"[AI] Calling Gemini API...")
                         
